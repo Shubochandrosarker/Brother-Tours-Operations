@@ -1,0 +1,1 @@
+import{i as r}from"./index-DU8HL6JR.js";function g(e={},t){return r.get("/team",{query:{page:e.page||1,per_page:e.perPage||50,search:e.search||""},signal:t})}function i(e,t){return r.get(`/team/${e}`,{signal:t})}export{i as g,g as l};
