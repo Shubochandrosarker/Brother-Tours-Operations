@@ -8,10 +8,10 @@
     "node": ">=20 <23"
   },
   "scripts": {
-    "dev": "npm run dev --workspace=web",
-    "build": "npm run preflight && npm run build --workspace=web",
+    "dev": "npm run dev --workspace=brother-tours-operations-web",
+    "build": "npm run preflight && npm run build --workspace=brother-tours-operations-web",
     "start": "node server.mjs",
-    "check": "npm run preflight && npm run build --workspace=web",
+    "check": "npm run preflight && npm run build --workspace=brother-tours-operations-web",
     "preflight": "node scripts/preflight.mjs"
   },
   "workspaces": [
