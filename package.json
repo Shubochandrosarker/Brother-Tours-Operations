@@ -1,0 +1,20 @@
+{
+  "name": "brother-tours-operations-hub",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Brother Tours operations management hub backed by the existing WordPress Operations API.",
+  "type": "module",
+  "engines": {
+    "node": ">=20 <23"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspace=web",
+    "build": "npm run preflight && npm run build --workspace=web",
+    "start": "node server.mjs",
+    "check": "npm run preflight && npm run build --workspace=web",
+    "preflight": "node scripts/preflight.mjs"
+  },
+  "workspaces": [
+    "apps/*"
+  ]
+}

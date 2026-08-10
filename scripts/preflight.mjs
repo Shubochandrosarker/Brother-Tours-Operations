@@ -1,0 +1,48 @@
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+
+const root = process.cwd();
+const web = resolve(root, 'apps/web');
+const src = resolve(web, 'src');
+const envPath = resolve(web, '.env.production');
+const failures = [];
+
+const major = Number(process.versions.node.split('.')[0]);
+if (major < 20 || major >= 23) failures.push(`Node ${process.versions.node} is outside the supported >=20 <23 range.`);
+
+let env = '';
+try { env = readFileSync(envPath, 'utf8'); } catch { failures.push('apps/web/.env.production is missing.'); }
+const api = env.match(/^VITE_BT_API_BASE=(.+)$/m)?.[1]?.trim() || '';
+if (!/^https:\/\/[^\s]+\/wp-json\/bt-ops\/v1\/?$/.test(api)) failures.push('VITE_BT_API_BASE must be an HTTPS bt-ops/v1 endpoint.');
+
+const files = [];
+function walk(dir) {
+  for (const name of readdirSync(dir)) {
+    const path = join(dir, name);
+    const stat = statSync(path);
+    if (stat.isDirectory()) walk(path);
+    else if (/\.(js|jsx)$/.test(name)) files.push(path);
+  }
+}
+walk(src);
+const source = files.map((file) => readFileSync(file, 'utf8')).join('\n');
+
+const forbidden = [
+  ['/dashboard/snapshot', 'invented dashboard endpoint'],
+  ['/dashboard/attention', 'invented dashboard endpoint'],
+  ['/dashboard/alerts', 'invented dashboard endpoint'],
+  ['/dashboard/activity', 'invented dashboard endpoint'],
+  ['/dashboard/upcoming', 'invented dashboard endpoint'],
+  ['X-CSRF-Token', 'wrong CSRF header'],
+];
+for (const [needle, label] of forbidden) if (source.includes(needle)) failures.push(`${label} found: ${needle}`);
+if (source.includes('localStorage') || source.includes('sessionStorage')) failures.push('Browser storage reference found in production source; auth state must remain server/runtime based.');
+if (!source.includes("'X-BT-CSRF'") && !source.includes('"X-BT-CSRF"')) failures.push('X-BT-CSRF write protection is missing from the API client.');
+
+if (failures.length) {
+  console.error('Preflight failed:');
+  failures.forEach((failure) => console.error(`- ${failure}`));
+  process.exit(1);
+}
+
+console.log(`Preflight passed · Node ${process.versions.node} · ${files.length} source files · API ${api}`);

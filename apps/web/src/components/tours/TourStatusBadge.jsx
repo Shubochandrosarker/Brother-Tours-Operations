@@ -1,0 +1,4 @@
+import React from 'react';
+import { cn } from '@/lib/utils';
+const STATUS_MAP={publish:'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',draft:'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',pending:'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',private:'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',future:'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300',trash:'bg-secondary text-muted-foreground'};
+export default function TourStatusBadge({status,className}){if(!status)return null;const key=String(status).toLowerCase();return <span className={cn('inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium capitalize',STATUS_MAP[key]||'bg-secondary text-muted-foreground',className)}>{key==='publish'?'Published':String(status).replace(/_/g,' ')}</span>}
