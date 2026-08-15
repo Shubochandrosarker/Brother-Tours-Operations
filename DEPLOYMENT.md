@@ -8,13 +8,41 @@ Recommended application hostname:
 https://app.brothertours.com
 ```
 
-Current API during staging validation:
+Current production API target:
 
 ```text
-https://staging.brothertours.com/wp-json/bt-ops/v1
+https://www.brothertours.com/wp-json/bridgistic/v1
 ```
 
-## 1. Pre-deploy checks
+## 1. Hostinger Web App profiles
+
+Create separate Hostinger Web Apps or deployment environments when staging and production must be available at the same time. Both use the repository root and the same `npm start` command; only the build target and WordPress API differ.
+
+### Staging profile
+
+```text
+Install command: npm ci
+Build command:   npm run build:staging
+Start command:   npm start
+Node:            22
+API:             https://staging.brothertours.com/wp-json/bridgistic/v1
+```
+
+### Production profile
+
+```text
+Install command: npm ci
+Build command:   npm run build:production
+Start command:   npm start
+Node:            22
+API:             https://www.brothertours.com/wp-json/bridgistic/v1
+```
+
+If Hostinger environment variables are used, set `VITE_BT_API_BASE` before the build. It overrides the committed `.env.staging` or `.env.production` value and must remain an HTTPS `bridgistic/v1` endpoint. Never put credentials in `VITE_*` variables.
+
+The staging and production app origins must be distinct if both are online simultaneously. Add each exact origin to the corresponding WordPress Operations API CORS allow-list; credentialed CORS must not use `*`.
+
+## 2. Pre-deploy checks
 
 On the deployment build machine:
 
@@ -22,7 +50,7 @@ On the deployment build machine:
 node --version
 npm --version
 npm ci
-npm run build
+npm run build:production
 ```
 
 Use Node 22 where available (`.nvmrc` is included).
@@ -33,19 +61,29 @@ Expected build directory:
 dist/apps/web
 ```
 
-## 2. Environment
+## 3. Environment
 
 The production build reads:
 
 ```env
-VITE_BT_API_BASE=https://staging.brothertours.com/wp-json/bt-ops/v1
+VITE_BT_API_BASE=https://www.brothertours.com/wp-json/bridgistic/v1
 ```
 
-For the final production WordPress cutover, update `apps/web/.env.production` before rebuilding.
+For staging validation, use:
+
+```bash
+npm run build:staging
+```
+
+This reads:
+
+```env
+VITE_BT_API_BASE=https://staging.brothertours.com/wp-json/bridgistic/v1
+```
 
 Do not add secrets to any `VITE_*` variable.
 
-## 3. Start command
+## 4. Start command
 
 The repository includes a dependency-free Node static server:
 
@@ -67,18 +105,7 @@ Expected response:
 {"ok":true,"app":"brother-tours-operations-hub","version":"1.0.0"}
 ```
 
-## 4. Hostinger-style Node deployment values
-
-Use the repository root as the application root.
-
-```text
-Install command: npm ci
-Build command:   npm run build
-Start command:   npm start
-Node:            22
-```
-
-Then connect the application hostname to this deployment.
+Use the repository root as the application root. Hostinger supplies `PORT`; the server defaults to `3000` for local smoke tests.
 
 ## 5. WordPress CORS
 
@@ -116,8 +143,12 @@ Keep the previous successful deployment/release available in the hosting platfor
 
 When the production WordPress Operations API is ready:
 
-1. Change `VITE_BT_API_BASE` to the production API base.
-2. Add `https://app.brothertours.com` to that production WordPress instance's allowed origins.
-3. Build again.
-4. Deploy.
-5. Repeat the smoke tests above before normal staff use.
+1. Confirm the live WordPress API accepts `https://app.brothertours.com`.
+2. Build with the production env:
+
+   ```bash
+   npm run build:production
+   ```
+
+3. Deploy the fresh production build.
+4. Repeat the smoke tests above before normal staff use.

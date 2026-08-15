@@ -10,9 +10,16 @@
   "scripts": {
     "dev": "npm run dev --workspace=brother-tours-operations-web",
     "build": "npm run preflight && npm run build --workspace=brother-tours-operations-web",
+    "build:staging": "npm run preflight:staging && npm run build:staging --workspace=brother-tours-operations-web",
+    "build:production": "npm run preflight:production && npm run build:production --workspace=brother-tours-operations-web",
     "start": "node server.mjs",
     "check": "npm run preflight && npm run build --workspace=brother-tours-operations-web",
-    "preflight": "node scripts/preflight.mjs"
+    "preflight": "node scripts/preflight.mjs",
+    "preflight:staging": "node scripts/preflight.mjs .env.staging",
+    "preflight:production": "node scripts/preflight.mjs .env.production"
+  },
+  "overrides": {
+    "esbuild": "^0.28.2"
   },
   "workspaces": [
     "apps/*"
