@@ -4,16 +4,19 @@ import { join, resolve } from 'node:path';
 const root = process.cwd();
 const web = resolve(root, 'apps/web');
 const src = resolve(web, 'src');
-const envPath = resolve(web, '.env.production');
+const envFile = process.argv[2] || '.env.production';
+const envPath = resolve(web, envFile);
 const failures = [];
 
 const major = Number(process.versions.node.split('.')[0]);
 if (major < 20 || major >= 23) failures.push(`Node ${process.versions.node} is outside the supported >=20 <23 range.`);
 
 let env = '';
-try { env = readFileSync(envPath, 'utf8'); } catch { failures.push('apps/web/.env.production is missing.'); }
-const api = env.match(/^VITE_BT_API_BASE=(.+)$/m)?.[1]?.trim() || '';
-if (!/^https:\/\/[^\s]+\/wp-json\/bt-ops\/v1\/?$/.test(api)) failures.push('VITE_BT_API_BASE must be an HTTPS bt-ops/v1 endpoint.');
+try { env = readFileSync(envPath, 'utf8'); } catch { failures.push(`apps/web/${envFile} is missing.`); }
+const configuredApi = process.env.VITE_BT_API_BASE?.trim() || '';
+const fileApi = env.match(/^VITE_BT_API_BASE=(.+)$/m)?.[1]?.trim() || '';
+const api = configuredApi || fileApi;
+if (!/^https:\/\/[^\s]+\/wp-json\/bridgistic\/v1\/?$/.test(api)) failures.push('VITE_BT_API_BASE must be an HTTPS bridgistic/v1 endpoint.');
 
 const files = [];
 function walk(dir) {
@@ -45,4 +48,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`Preflight passed · Node ${process.versions.node} · ${files.length} source files · API ${api}`);
+console.log(`Preflight passed · Node ${process.versions.node} · ${files.length} source files · API ${api}${configuredApi ? ' · process env override' : ''}`);

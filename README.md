@@ -6,7 +6,7 @@ Production-oriented React/Vite operations console for Brother Tours.
 
 - **Frontend:** React 18, Vite, Tailwind CSS, React Router, Recharts.
 - **Backend / source of truth:** the existing Brother Tours WordPress installation.
-- **Operations API:** `bt-ops/v1` via `VITE_BT_API_BASE`.
+- **Operations API:** `bridgistic/v1` via `VITE_BT_API_BASE`.
 - **Authentication:** WordPress-authoritative HttpOnly session cookie plus runtime-only `X-BT-CSRF` token.
 - **Business data:** never duplicated into the frontend or a second application database.
 
@@ -38,27 +38,39 @@ npm run dev
 
 The web app runs on port `3000` by default.
 
-## Production build
+## Staging build
 
 ```bash
 npm ci
-npm run build
+npm run build:staging
 npm start
 ```
 
 `npm start` serves `dist/apps/web` with SPA fallback, `/healthz`, noindex headers, and baseline security headers.
 
+## Production build
+
+```bash
+npm ci
+npm run build:production
+npm start
+```
+
 ## Environment
 
-Current build target:
+Production build target:
 
 ```env
-VITE_BT_API_BASE=https://staging.brothertours.com/wp-json/bt-ops/v1
+VITE_BT_API_BASE=https://www.brothertours.com/wp-json/bridgistic/v1
 ```
 
 This URL is public configuration, not a secret. Never put WordPress passwords, session values, CSRF tokens, connection secrets, payment secrets, or private API keys in `VITE_*` variables.
 
-Before the final live backend cutover, change `apps/web/.env.production` to the production Brother Tours Operations API.
+Staging build target:
+
+```env
+VITE_BT_API_BASE=https://staging.brothertours.com/wp-json/bridgistic/v1
+```
 
 ## Important backend requirements
 

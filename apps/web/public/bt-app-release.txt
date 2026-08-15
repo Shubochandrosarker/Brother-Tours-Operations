@@ -1,0 +1,3 @@
+Brother Tours Operations App
+API namespace: bridgistic/v1
+If you can open this file on app.brothertours.com, the fresh deployment root is active.

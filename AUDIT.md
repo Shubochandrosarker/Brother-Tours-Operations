@@ -112,4 +112,4 @@ before release. Do not call the deployment complete if that build fails on the r
 
 ## Current intentional constraint
 
-`apps/web/.env.production` points to the **staging** Brother Tours API. This is deliberate for the current validation deployment. Change it only when the production WordPress Operations API is installed, configured, and ready.
+`apps/web/.env.production` now points to the **live** Brother Tours API namespace: `https://www.brothertours.com/wp-json/bridgistic/v1`. The live WordPress plugin must be installed and smoke-tested before the app is used by staff.

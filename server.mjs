@@ -3,6 +3,10 @@ import { createReadStream, existsSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
 
 const port = Number(process.env.PORT || 3000);
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  console.error(`Invalid PORT value: ${process.env.PORT}`);
+  process.exit(1);
+}
 const root = resolve(process.cwd(), 'dist/apps/web');
 const mime = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
@@ -27,14 +31,33 @@ function securityHeaders(res) {
 
 const server = http.createServer((req, res) => {
   securityHeaders(res);
-  if (req.url === '/healthz' || req.url === '/healthz.json') {
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-    res.end(JSON.stringify({ ok: true, app: 'brother-tours-operations-hub', version: '1.0.0' }));
+  const method = req.method || 'GET';
+  if (method !== 'GET' && method !== 'HEAD') {
+    res.writeHead(405, { Allow: 'GET, HEAD', 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Method Not Allowed');
     return;
   }
 
-  const rawPath = decodeURIComponent((req.url || '/').split('?')[0]);
-  const safePath = normalize(rawPath).replace(/^(\.\.(\/|\\|$))+/, '');
+  let pathname;
+  try {
+    pathname = decodeURIComponent(new URL(req.url || '/', 'http://localhost').pathname);
+  } catch {
+    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Bad Request');
+    return;
+  }
+
+  if (pathname === '/healthz' || pathname === '/healthz.json') {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    if (method === 'HEAD') {
+      res.end();
+    } else {
+      res.end(JSON.stringify({ ok: true, app: 'brother-tours-operations-hub', version: '1.0.0' }));
+    }
+    return;
+  }
+
+  const safePath = normalize(pathname).replace(/^(\.\.(\/|\\|$))+/, '');
   let file = join(root, safePath === '/' ? 'index.html' : safePath);
   if (!file.startsWith(root)) file = join(root, 'index.html');
 
@@ -47,7 +70,11 @@ const server = http.createServer((req, res) => {
   const type = mime[extname(file).toLowerCase()] || 'application/octet-stream';
   const cache = isAsset && /\/assets\//.test(file) ? 'public, max-age=31536000, immutable' : 'no-cache';
   res.writeHead(200, { 'Content-Type': type, 'Cache-Control': cache });
-  createReadStream(file).pipe(res);
+  if (method === 'HEAD') {
+    res.end();
+  } else {
+    createReadStream(file).pipe(res);
+  }
 });
 
 server.listen(port, '0.0.0.0', () => {
