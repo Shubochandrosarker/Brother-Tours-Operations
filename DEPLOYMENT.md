@@ -1,154 +1,138 @@
 # Deployment — Brother Tours Operations Hub
 
-## Target
+Production only. There is no staging environment; see [Staging](#staging) below.
 
-Recommended application hostname:
+| | |
+|---|---|
+| App | `https://app.brothertours.com` |
+| API | `https://www.brothertours.com/wp-json/bridgistic/v1` |
+| Runtime | Hostinger Web App, Node 22 |
+| Backend | WordPress (`brother-tours-operations-api`), source of truth |
 
-```text
-https://app.brothertours.com
-```
+---
 
-Current production API target:
+## 1 · Hostinger Web App panel
 
-```text
-https://www.brothertours.com/wp-json/bridgistic/v1
-```
-
-## 1. Hostinger Web App profiles
-
-Create separate Hostinger Web Apps or deployment environments when staging and production must be available at the same time. Both use the repository root and the same `npm start` command; only the build target and WordPress API differ.
-
-### Staging profile
+Set exactly this. Do not rely on panel defaults.
 
 ```text
-Install command: npm ci
-Build command:   npm run build:staging
-Start command:   npm start
-Node:            22
-API:             https://staging.brothertours.com/wp-json/bridgistic/v1
+Application root:  /            (repository root — the workspace root, not apps/web)
+Node version:      22           (matches .nvmrc and engines ">=20 <23")
+Install command:   npm ci
+Build command:     BT_TARGET=production npm run build && BT_TARGET=production npm run verify:build
+Start command:     npm start
+Health check path: /healthz
 ```
 
-### Production profile
+Build-time environment variables:
 
 ```text
-Install command: npm ci
-Build command:   npm run build:production
-Start command:   npm start
-Node:            22
-API:             https://www.brothertours.com/wp-json/bridgistic/v1
+VITE_BT_API_BASE = https://www.brothertours.com/wp-json/bridgistic/v1
+BT_TARGET        = production
 ```
 
-If Hostinger environment variables are used, set `VITE_BT_API_BASE` before the build. It overrides the committed `.env.staging` or `.env.production` value and must remain an HTTPS `bridgistic/v1` endpoint. Never put credentials in `VITE_*` variables.
+`PORT` is injected by Hostinger. `server.mjs` reads it and binds `0.0.0.0` — never hardcode a port.
 
-The staging and production app origins must be distinct if both are online simultaneously. Add each exact origin to the corresponding WordPress Operations API CORS allow-list; credentialed CORS must not use `*`.
+### The build step is not optional
 
-## 2. Pre-deploy checks
+`server.mjs` is a pure static file server. It never builds. It serves whatever is in `dist/apps/web`.
+`dist/` is not in git (deliberately — see §4), so **if the build command does not run, there is nothing to serve and the process exits with a clear error** rather than silently shipping a stale bundle.
 
-On the deployment build machine:
+If the Hostinger plan or panel cannot run a build step, do **not** resurrect a committed `dist/`. Change the deployment model instead:
+
+1. Build in GitHub Actions (`.github/workflows/build.yml` already produces and verifies the exact artifact).
+2. Upload `dist/apps/web` plus `server.mjs`, `package.json` and `package-lock.json` as the deployment payload.
+3. Run `npm ci --omit=dev && npm start` on the host.
+
+The artifact must carry `dist/apps/web/build-info.json`; without it `/healthz` cannot report which build is live and the CSP `connect-src` degrades to `'self'` only.
+
+---
+
+## 2 · Verifying a deployment
+
+One request answers "what is live and where is it pointed":
 
 ```bash
-node --version
-npm --version
-npm ci
-npm run build:production
+curl -s https://app.brothertours.com/healthz
 ```
-
-Use Node 22 where available (`.nvmrc` is included).
-
-Expected build directory:
-
-```text
-dist/apps/web
-```
-
-## 3. Environment
-
-The production build reads:
-
-```env
-VITE_BT_API_BASE=https://www.brothertours.com/wp-json/bridgistic/v1
-```
-
-For staging validation, use:
-
-```bash
-npm run build:staging
-```
-
-This reads:
-
-```env
-VITE_BT_API_BASE=https://staging.brothertours.com/wp-json/bridgistic/v1
-```
-
-Do not add secrets to any `VITE_*` variable.
-
-## 4. Start command
-
-The repository includes a dependency-free Node static server:
-
-```bash
-npm start
-```
-
-It reads the hosting platform's `PORT` environment variable automatically and serves the compiled React app with SPA route fallback.
-
-Health endpoint:
-
-```text
-/healthz
-```
-
-Expected response:
 
 ```json
-{"ok":true,"app":"brother-tours-operations-hub","version":"1.0.0"}
+{
+  "ok": true,
+  "app": "brother-tours-operations-hub",
+  "apiBase": "https://www.brothertours.com/wp-json/bridgistic/v1",
+  "commit": "<short sha>",
+  "builtAt": "<ISO timestamp>",
+  "uptimeSeconds": 0
+}
 ```
 
-Use the repository root as the application root. Hostinger supplies `PORT`; the server defaults to `3000` for local smoke tests.
+`apiBase` must be the `www` `bridgistic/v1` URL and `commit` must match `main`. If either disagrees, the deployed bundle is not the one you think it is — **stop and re-deploy** rather than debugging the app.
 
-## 5. WordPress CORS
+Live smoke test, in order:
 
-The Brother Tours Operations API must allow the exact deployed origin:
+1. `/healthz` reports the expected `apiBase` and `commit`.
+2. `/login` renders; the footer shows the correct compiled API base.
+3. Sign in with an account holding `bt_manage_operations`.
+4. **Hard-refresh.** The session must persist — this is the assertion that was failing.
+5. Dashboard loads real data from `GET /dashboard`.
+6. Add one internal note on a test record — confirms the `X-BT-CSRF` write path.
+7. DevTools → Application → Cookies on `www.brothertours.com`: `bt_ops_session` present, `HttpOnly`, `Secure`, `SameSite=None`.
+8. DevTools → Network: zero requests to `bt-ops/v1` or `staging.brothertours.com`.
+9. Sign out → `/auth/session` returns `401` → redirected to `/login` **with a message**, not silently.
 
-```text
-https://app.brothertours.com
-```
+---
 
-The existing Operations API security model requires credentialed requests and the `X-BT-CSRF` header. Keep the allow-list explicit.
+## 3 · Which routing file applies to which runtime
 
-## 6. Smoke-test order
+Three SPA-routing mechanisms live in this repository. Only one is active at a time. Editing the wrong one is how SPA routing gets "debugged" for a day with no effect.
 
-After deployment, test in this order:
+| File | Runtime | Active on Hostinger Web App? |
+|---|---|---|
+| `server.mjs` | **Node** — the Hostinger Web App runtime | **Yes. This is the one that matters.** |
+| `apps/web/public/.htaccess` | Apache / LiteSpeed static hosting | No — inert under Node |
+| `apps/web/public/_redirects` | Netlify | No — inert under Node |
 
-1. `/login` renders.
-2. Sign in with an authorized WordPress operations account.
-3. Refresh the browser and confirm the session persists.
-4. Dashboard loads real data.
-5. Inquiries list loads.
-6. One inquiry detail loads transactions/activity/connections.
-7. Add one internal note on a staging record and verify `X-BT-CSRF` succeeds.
-8. Tours list and one edit/save work.
-9. Destinations, Experiences, and Departures load.
-10. Form Inbox loads and one controlled staging note/reply flow is verified.
-11. Connections, Reports, Team, and System Health load.
-12. Verify `/healthz` returns HTTP 200.
-13. Verify private app pages are not indexable.
+The two static-host files are kept only as a fallback for static hosting. Under the current deployment, **all SPA routing and header behaviour comes from `server.mjs`.**
 
-## 7. Rollback
+`server.mjs` deliberately returns `404` for a missing file under `/assets/` rather than falling back to `index.html`. Serving HTML under a `text/javascript` Content-Type kills the app with an opaque module parse error; a `404` names the problem.
 
-Keep the previous successful deployment/release available in the hosting platform. If any authenticated write path fails after release, switch traffic back to the previous release and investigate on staging rather than editing production data to compensate.
+---
 
-## 8. Live-backend cutover
+## 4 · Why `dist/` is not in git
 
-When the production WordPress Operations API is ready:
+It was, and that is exactly what took production down. The committed bundle was compiled against `https://staging.brothertours.com/wp-json/bt-ops/v1` — a dead host and a dead REST namespace — and `dist/apps/web/assets/` held duplicate chunks from two different builds, proving the tracked output was an accumulated mixture rather than a clean artifact.
 
-1. Confirm the live WordPress API accepts `https://app.brothertours.com`.
-2. Build with the production env:
+Guards now in place, in the order they fire:
 
-   ```bash
-   npm run build:production
-   ```
+| Guard | Catches |
+|---|---|
+| `.gitignore` (`dist/`, `*.zip`) | Re-committing build output |
+| `npm run preflight:production` | A non-HTTPS or non-`bridgistic/v1` API base; browser-storage auth; missing `X-BT-CSRF` |
+| `scripts/stamp.mjs` | Writes `build-info.json` so the shipped build is identifiable |
+| `scripts/verify-build.mjs` | `bt-ops/v1` in the bundle, a staging host in a production build, an unresolved API base, duplicate chunks, `index.html` pointing at absent assets |
+| `.github/workflows/build.yml` | All of the above, on every push and PR — including a hard failure if `dist/` or a `.zip` is tracked again |
 
-3. Deploy the fresh production build.
-4. Repeat the smoke tests above before normal staff use.
+A bare `npm run build` **is** the production build. There is no other profile that can be reached by accident.
+
+---
+
+## 5 · Staging
+
+**There is no staging environment.** The staging profile (`apps/web/.env.staging`, `build:staging`, `preflight:staging`) has been removed.
+
+It previously pointed at `https://staging.brothertours.com/wp-json/bridgistic/v1`, which disagreed with the 14 Aug deployment note recording the staging API at the apex `https://brothertours.com/wp-json/bridgistic/v1`. At most one was real, and a build profile pointing at an unconfirmed host is worse than no profile — it is precisely what shipped the wrong bundle.
+
+To reintroduce staging later:
+
+1. Confirm the host actually serves WordPress and the `bridgistic/v1` namespace resolves.
+2. Add `apps/web/.env.staging` with the confirmed base.
+3. Add `build:staging` / `preflight:staging` back to `package.json`.
+4. Add the staging origin to `BT_OPS_ALLOWED_ORIGINS` on the WordPress side.
+5. Extend `scripts/verify-build.mjs` so a staging base cannot pass a `BT_TARGET=production` build (the check is already there and keyed on `BT_TARGET`).
+
+---
+
+## 6 · WordPress side
+
+The backend is live and is the source of truth. Recommended changes are documented, **unapplied**, in [`docs/wordpress-patches.md`](docs/wordpress-patches.md). They require sign-off and a Bridgistic snapshot before deployment and are not part of this deployment.

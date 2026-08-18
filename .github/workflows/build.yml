@@ -1,0 +1,59 @@
+name: Build
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Production build and verification
+    runs-on: ubuntu-latest
+    env:
+      BT_TARGET: production
+      VITE_BT_API_BASE: https://www.brothertours.com/wp-json/bridgistic/v1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Assert no build output is tracked
+        run: |
+          if [ "$(git ls-files dist | wc -l)" -ne 0 ]; then
+            echo "::error::dist/ is tracked in git. A committed bundle is what caused the production outage."
+            git ls-files dist
+            exit 1
+          fi
+          if [ "$(git ls-files '*.zip' | wc -l)" -ne 0 ]; then
+            echo "::error::A deploy zip is tracked in git."
+            git ls-files '*.zip'
+            exit 1
+          fi
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify build
+        run: npm run verify:build
+
+      - name: Assert the server boots and reports the live build
+        run: |
+          PORT=3000 npm start &
+          for _ in $(seq 1 40); do
+            curl -sf http://localhost:3000/healthz >/dev/null && break
+            sleep 0.5
+          done
+          curl -sf http://localhost:3000/healthz | tee /tmp/healthz.json
+          grep -q 'https://www.brothertours.com/wp-json/bridgistic/v1' /tmp/healthz.json
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/assets/does-not-exist.js)" = "404"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/inquiries)" = "200"

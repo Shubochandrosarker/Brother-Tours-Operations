@@ -38,22 +38,25 @@ npm run dev
 
 The web app runs on port `3000` by default.
 
-## Staging build
-
-```bash
-npm ci
-npm run build:staging
-npm start
-```
-
-`npm start` serves `dist/apps/web` with SPA fallback, `/healthz`, noindex headers, and baseline security headers.
-
 ## Production build
 
 ```bash
 npm ci
-npm run build:production
+BT_TARGET=production npm run build
+BT_TARGET=production npm run verify:build
 npm start
+```
+
+`npm run build` **is** the production build — there is no other profile. It runs preflight, builds, and stamps `dist/apps/web/build-info.json`.
+
+`npm run verify:build` inspects the built output and fails on a dead namespace, a staging host in a production bundle, an unresolved API base, duplicate chunks from a stale build, or an `index.html` referencing assets that are not on disk. Run it before every deploy.
+
+`npm start` serves `dist/apps/web` with SPA fallback, `/healthz`, noindex headers, and baseline security headers. Build output is **not** committed to this repository; `npm start` fails loudly if the build has not run.
+
+Check which build is live:
+
+```bash
+curl -s https://app.brothertours.com/healthz
 ```
 
 ## Environment
@@ -66,11 +69,7 @@ VITE_BT_API_BASE=https://www.brothertours.com/wp-json/bridgistic/v1
 
 This URL is public configuration, not a secret. Never put WordPress passwords, session values, CSRF tokens, connection secrets, payment secrets, or private API keys in `VITE_*` variables.
 
-Staging build target:
-
-```env
-VITE_BT_API_BASE=https://staging.brothertours.com/wp-json/bridgistic/v1
-```
+There is no staging environment and no staging build profile. See the Staging section of [`DEPLOYMENT.md`](DEPLOYMENT.md) for the reasoning and for what reintroducing one would require.
 
 ## Important backend requirements
 
