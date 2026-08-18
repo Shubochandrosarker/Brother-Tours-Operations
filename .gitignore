@@ -2,3 +2,8 @@ node_modules/
 .env
 .env.local
 .env.*.local
+dist/
+*.zip
+apps/web/.env
+apps/web/.env.local
+apps/web/.env.*.local
