@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Helmet } from 'react-helmet';
+import { Helmet } from 'react-helmet-async';
 import { ChevronLeft, ChevronRight, MailCheck, Search, Users } from 'lucide-react';
 import { listSubscribers } from '@/api/inbox';
 import { ApiError } from '@/api/client';

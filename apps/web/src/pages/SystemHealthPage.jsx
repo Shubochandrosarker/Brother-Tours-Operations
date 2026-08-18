@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useState} from 'react';
-import {Helmet} from 'react-helmet';
+import {Helmet} from 'react-helmet-async';
 import {CheckCircle2,HeartPulse,RefreshCw,TriangleAlert,XCircle} from 'lucide-react';
 import {fetchSystemHealth} from '@/api/system';
 import {ApiError} from '@/api/client';

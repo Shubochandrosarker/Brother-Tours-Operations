@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useState} from 'react';
-import {Helmet} from 'react-helmet';
+import {Helmet} from 'react-helmet-async';
 import {BarChart3,FileText,MessageSquare,RefreshCw} from 'lucide-react';
 import {fetchBookingsReport,fetchFormsReport,fetchOverviewReport} from '@/api/reports';
 import {ApiError} from '@/api/client';

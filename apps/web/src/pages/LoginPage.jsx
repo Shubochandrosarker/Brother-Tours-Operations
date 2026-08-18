@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { Helmet } from 'react-helmet';
+import { Helmet } from 'react-helmet-async';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Compass, Loader2, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { ApiError } from '@/api/client';
+import { API_BASE, ApiError } from '@/api/client';
 
 export default function LoginPage() {
-	const { login, isAuthenticated, status } = useAuth();
+	const { login, isAuthenticated, status, signedOutReason, clearSignedOutReason } = useAuth();
 	const navigate = useNavigate();
 	const location = useLocation();
 	const [form, setForm] = useState({ username: '', password: '' });
@@ -21,12 +21,15 @@ export default function LoginPage() {
 		event.preventDefault();
 		setSubmitting(true);
 		setError(null);
+		clearSignedOutReason();
 		try {
 			await login(form);
 			navigate(location.state?.from || '/', { replace: true });
 		} catch (err) {
 			if (err instanceof ApiError && err.isUnavailable) {
 				setError('The authentication service is unreachable. Please check the connection to the operations API and try again.');
+			} else if (err instanceof ApiError && err.code === 'bt_ops_cookie_not_returned') {
+				setError(err.message);
 			} else if (err instanceof ApiError && (err.isUnauthorized || err.isForbidden || err.status === 401 || err.status === 403)) {
 				setError('Those credentials were rejected by the server. Check your username and password.');
 			} else {
@@ -121,6 +124,12 @@ export default function LoginPage() {
 						</div>
 
 
+						{!error && signedOutReason ? (
+							<p role="status" className="rounded-lg border border-border bg-secondary/50 px-3 py-2.5 text-sm text-muted-foreground">
+								{signedOutReason}
+							</p>
+						) : null}
+
 						{error ? (
 							<p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
 								{error}
@@ -139,6 +148,9 @@ export default function LoginPage() {
 
 					<p className="mt-6 text-xs leading-relaxed text-muted-foreground">
 						Credentials are sent once over HTTPS and exchanged for an HttpOnly session cookie. Nothing is stored in the browser.
+					</p>
+					<p className="mt-3 break-all text-[11px] leading-relaxed text-muted-foreground/70">
+						API: {API_BASE || 'not configured'}
 					</p>
 				</div>
 			</div>

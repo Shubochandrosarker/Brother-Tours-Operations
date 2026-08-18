@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Helmet } from 'react-helmet';
+import { Helmet } from 'react-helmet-async';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, Pencil, RefreshCw } from 'lucide-react';
 import { createTour, deleteTour, fetchTour, updateTour } from '@/api/tours';
