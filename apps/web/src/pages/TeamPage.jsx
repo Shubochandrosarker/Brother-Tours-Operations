@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useState} from 'react';
-import {Helmet} from 'react-helmet';
+import {Helmet} from 'react-helmet-async';
 import {ChevronLeft,ChevronRight,Search,Users} from 'lucide-react';
 import {getTeamMember,listTeam} from '@/api/team';
 import {ApiError} from '@/api/client';

@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useState} from 'react';
-import {Helmet} from 'react-helmet';
+import {Helmet} from 'react-helmet-async';
 import {Pencil,Plus,Search,Trash2} from 'lucide-react';
 import {createDestination,deleteDestination,listDestinations,updateDestination} from '@/api/catalog';
 import {ApiError} from '@/api/client';

@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useState} from 'react';
-import {Helmet} from 'react-helmet';
+import {Helmet} from 'react-helmet-async';
 import {CalendarRange,Pencil,Plus,Trash2} from 'lucide-react';
 import {createDeparture,deleteDeparture,listDepartures,updateDeparture} from '@/api/departures';
 import {fetchTours} from '@/api/tours';

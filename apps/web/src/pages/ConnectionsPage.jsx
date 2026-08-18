@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Helmet } from 'react-helmet';
+import { Helmet } from 'react-helmet-async';
 import { AlertTriangle, CheckCircle2, Network, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { createConnection, deleteConnection, listConnectionLogs, listConnections, updateConnection } from '@/api/connections';
 import { ApiError } from '@/api/client';

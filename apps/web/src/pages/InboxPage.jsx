@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useState} from 'react';
-import {Helmet} from 'react-helmet';
+import {Helmet} from 'react-helmet-async';
 import {useNavigate} from 'react-router-dom';
 import {ChevronLeft,ChevronRight,Mail,Search} from 'lucide-react';
 import {fetchInboxStats,listSubmissions} from '@/api/inbox';

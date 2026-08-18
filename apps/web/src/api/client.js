@@ -38,6 +38,11 @@ function buildUrl(path, query) {
   return url.toString();
 }
 
+/** True for the session routes themselves, which must never trigger a re-verify. */
+function isSessionRoute(path) {
+  return /^\/?auth\/session(\/|$)/.test(String(path || ''));
+}
+
 async function parseBody(response) {
   if (response.status === 204) return null;
   const type = response.headers.get('content-type') || '';
@@ -57,20 +62,51 @@ export function unwrapEnvelope(body) {
   return body;
 }
 
-function emitUnauthorized() {
-  try { window.dispatchEvent(new CustomEvent('bt-ops:unauthorized')); } catch { /* noop */ }
+/**
+ * Signals that the session is genuinely gone. `reason` reaches the login screen
+ * so an eviction is never silent.
+ */
+function emitUnauthorized(reason) {
+  try { window.dispatchEvent(new CustomEvent('bt-ops:unauthorized', { detail: { reason: reason || null } })); }
+  catch { /* noop */ }
 }
 
-async function refreshCsrf() {
+/**
+ * Fetches GET /auth/session directly, bypassing request() so it can never
+ * recurse into the 401 re-verification path. Returns the unwrapped payload on
+ * success, or null when the session is gone. Throws on a transport failure so
+ * callers can tell "signed out" apart from "cannot reach the API".
+ */
+async function readSession() {
+  let response;
   try {
-    const response = await fetch(buildUrl('/auth/session'), { method: 'GET', credentials: 'include', headers: { Accept: 'application/json' } });
-    const parsed = await parseBody(response);
-    if (!response.ok) return false;
-    const payload = unwrapEnvelope(parsed);
-    const token = payload?.csrfToken || response.headers.get('X-BT-CSRF');
-    if (token) setCsrfToken(token);
-    return Boolean(token);
-  } catch { return false; }
+    response = await fetch(buildUrl('/auth/session'), {
+      method: 'GET', credentials: 'include', headers: { Accept: 'application/json' },
+    });
+  } catch (error) {
+    throw new ApiError('Could not reach the Brother Tours API.', { status: 0, code: 'network_unavailable', details: String(error?.message || error) });
+  }
+  const parsed = await parseBody(response);
+  if (response.status === 401) return null;
+  if (!response.ok) {
+    throw new ApiError(messageFromBody(parsed, `Session check failed with status ${response.status}.`), {
+      status: response.status, code: `http_${response.status}`, details: parsed,
+    });
+  }
+  const payload = unwrapEnvelope(parsed);
+  const token = payload?.csrfToken || response.headers.get('X-BT-CSRF');
+  if (token) setCsrfToken(token);
+  return payload;
+}
+
+// A single in-flight session check shared by concurrent callers, so a burst of
+// 401s from parallel data calls produces one re-verification, not a stampede.
+let sessionCheck = null;
+export function verifySession() {
+  if (!sessionCheck) {
+    sessionCheck = readSession().finally(() => { sessionCheck = null; });
+  }
+  return sessionCheck;
 }
 
 export async function request(path, options = {}, attempt = 0) {
@@ -92,16 +128,49 @@ export async function request(path, options = {}, attempt = 0) {
     });
   } catch (error) {
     if (error?.name === 'AbortError') throw error;
+    // A transport failure is not a signed-out state. It must never evict the
+    // session — it surfaces as an unavailable-service error instead.
     throw new ApiError('Could not reach the Brother Tours API. Check the network or API CORS configuration.', { status: 0, code: 'network_unavailable', details: String(error?.message || error) });
   }
 
   const parsed = await parseBody(response);
   if (!response.ok) {
     const code = parsed && typeof parsed === 'object' ? (parsed.code || parsed.error?.code) : null;
-    if (response.status === 403 && code === 'bt_ops_csrf_failed' && attempt === 0 && await refreshCsrf()) {
-      return request(path, options, 1);
+    if (response.status === 403 && code === 'bt_ops_csrf_failed' && attempt === 0) {
+      let refreshed = false;
+      try { refreshed = Boolean(await verifySession()); } catch { refreshed = false; }
+      if (refreshed) return request(path, options, 1);
     }
-    if (response.status === 401) { setCsrfToken(null); emitUnauthorized(); }
+
+    if (response.status === 401) {
+      if (isSessionRoute(path)) {
+        // The session endpoint is authoritative: a 401 here IS the signed-out state.
+        setCsrfToken(null);
+        emitUnauthorized('Your session has ended. Please sign in again.');
+      } else {
+        // A 401 from a data route is not proof the session is gone. Re-verify once
+        // before evicting the operator mid-task.
+        let session = null;
+        let reachable = true;
+        try { session = await verifySession(); }
+        catch { reachable = false; }
+
+        if (session) {
+          // Session is intact — this 401 was specific to the requested resource.
+          throw new ApiError(messageFromBody(parsed, 'You are not authorized to access this resource.'), {
+            status: 401, code: code || 'http_401', details: parsed,
+          });
+        }
+        if (!reachable) {
+          throw new ApiError('Could not reach the Brother Tours API to confirm your session.', {
+            status: 0, code: 'network_unavailable', details: parsed,
+          });
+        }
+        setCsrfToken(null);
+        emitUnauthorized('Your session has ended. Please sign in again.');
+      }
+    }
+
     throw new ApiError(messageFromBody(parsed, `Request failed with status ${response.status}.`), {
       status: response.status,
       code: code || `http_${response.status}`,
