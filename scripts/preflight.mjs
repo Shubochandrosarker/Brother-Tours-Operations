@@ -37,6 +37,16 @@ const forbidden = [
   ['/dashboard/activity', 'invented dashboard endpoint'],
   ['/dashboard/upcoming', 'invented dashboard endpoint'],
   ['X-CSRF-Token', 'wrong CSRF header'],
+  // The connector plane authorises as an HMAC key with no WordPress user. Its
+  // key must never reach a browser bundle — that would hand every visitor
+  // php:execute, db:write and fs:write on production.
+  ['X-Bridgistic-Key', 'connector HMAC header in client source'],
+  ['X-Bridgistic-Signature', 'connector HMAC header in client source'],
+  ['X-Bridgistic-Timestamp', 'connector HMAC header in client source'],
+  ['bridgistic_secret', 'connector secret reference in client source'],
+  // Insightistic's get_dashboard_data() returns a pre-rendered html string from
+  // another plugin. Nothing in this app may inject raw markup.
+  ['dangerouslySetInnerHTML', 'raw HTML injection'],
 ];
 for (const [needle, label] of forbidden) if (source.includes(needle)) failures.push(`${label} found: ${needle}`);
 if (source.includes('localStorage') || source.includes('sessionStorage')) failures.push('Browser storage reference found in production source; auth state must remain server/runtime based.');

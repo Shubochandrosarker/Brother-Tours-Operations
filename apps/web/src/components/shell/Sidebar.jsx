@@ -1,7 +1,8 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Compass } from 'lucide-react';
-import { navGroups } from '@/config/navigation';
+import { visibleNavGroups } from '@/config/navigation';
+import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 
 export function SidebarBrand() {
@@ -19,9 +20,14 @@ export function SidebarBrand() {
 }
 
 export function SidebarNav({ onNavigate }) {
+	const { user } = useAuth();
+	// A user without edit_posts must not see Content at all — no dead links,
+	// no 403 on click. The server enforces the same check regardless.
+	const groups = visibleNavGroups(user?.capabilities);
+
 	return (
 		<nav className="flex-1 space-y-6 overflow-y-auto px-3 pb-6">
-			{navGroups.map((group) => (
+			{groups.map((group) => (
 				<div key={group.id}>
 					<p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/80">
 						{group.label}

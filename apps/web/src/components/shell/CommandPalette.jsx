@@ -8,10 +8,15 @@ import {
 	CommandItem,
 	CommandList,
 } from '@/components/ui/command';
-import { navGroups } from '@/config/navigation';
+import { visibleNavGroups } from '@/config/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 export default function CommandPalette({ open, onOpenChange }) {
 	const navigate = useNavigate();
+	const { user } = useAuth();
+	// Filtered against the same capability list as the sidebar — a page hidden
+	// from the nav must not be reachable by typing its name here.
+	const groups = visibleNavGroups(user?.capabilities);
 
 	useEffect(() => {
 		function onKeyDown(event) {
@@ -29,7 +34,7 @@ export default function CommandPalette({ open, onOpenChange }) {
 			<CommandInput placeholder="Search pages — record search arrives with the operations modules" />
 			<CommandList>
 				<CommandEmpty>No matching pages in this workspace yet.</CommandEmpty>
-				{navGroups.map((group) => (
+				{groups.map((group) => (
 					<CommandGroup key={group.id} heading={group.label}>
 						{group.items.map((item) => (
 							<CommandItem

@@ -5,6 +5,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import ScrollToTop from '@/components/ScrollToTop';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import RequireAuth from '@/components/RequireAuth';
+import RequireCapability from '@/components/RequireCapability';
 import AppShell from '@/components/shell/AppShell';
 import { AuthProvider } from '@/context/AuthContext';
 import LoginPage from '@/pages/LoginPage';
@@ -26,6 +27,11 @@ const ReportsPage = lazy(() => import('@/pages/ReportsPage'));
 const TeamPage = lazy(() => import('@/pages/TeamPage'));
 const SystemHealthPage = lazy(() => import('@/pages/SystemHealthPage'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
+const ContentPage = lazy(() => import('@/pages/ContentPage'));
+const ContentEditorPage = lazy(() => import('@/pages/ContentEditorPage'));
+const MediaPage = lazy(() => import('@/pages/MediaPage'));
+const AnalyticsPage = lazy(() => import('@/pages/AnalyticsPage'));
+const SitePage = lazy(() => import('@/pages/SitePage'));
 
 export default function App() {
   return (
@@ -49,6 +55,12 @@ export default function App() {
                   <Route path="departures" element={<DeparturesPage />} />
                   <Route path="destinations" element={<DestinationsPage />} />
                   <Route path="experiences" element={<ExperiencesPage />} />
+                  <Route path="content" element={<RequireCapability capability="edit_posts"><ContentPage /></RequireCapability>} />
+                  <Route path="content/new" element={<RequireCapability capability="edit_posts"><ContentEditorPage mode="create" /></RequireCapability>} />
+                  <Route path="content/:id" element={<RequireCapability capability="edit_posts"><ContentEditorPage /></RequireCapability>} />
+                  <Route path="media" element={<RequireCapability capability="upload_files"><MediaPage /></RequireCapability>} />
+                  <Route path="analytics" element={<AnalyticsPage />} />
+                  <Route path="site" element={<RequireCapability capability="manage_options"><SitePage /></RequireCapability>} />
                   <Route path="inbox" element={<InboxPage />} />
                   <Route path="inbox/:id" element={<SubmissionDetailPage />} />
                   <Route path="newsletter" element={<NewsletterPage />} />
