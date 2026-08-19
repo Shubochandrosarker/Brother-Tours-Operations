@@ -402,7 +402,18 @@ For `docs/V4-DATA-CONFLICT-REGISTER.md` (V4.1 §19 Phase 0).
 
 ## 7. Re-verification commands
 
-Run from a host with egress to `brothertours.com`. Everything marked **[AUDIT-0820]**, **[BRIEF-0818]** or **[UNVERIFIED]** should be re-established with these before Phase 1 starts.
+**All of the below is packaged as [`scripts/verify-live-baseline.sh`](../scripts/verify-live-baseline.sh)** — run that instead of pasting commands one at a time:
+
+```bash
+./scripts/verify-live-baseline.sh                                  # anonymous checks
+BT_COOKIE='bt_ops_session=...' ./scripts/verify-live-baseline.sh   # adds §4 / C-02
+```
+
+It is read-only, exits non-zero on any critical finding, and writes the full live route inventory to `/tmp/bt-live-routes.txt` for direct comparison against §2.
+
+One behaviour worth knowing: the script decides reachability **once**, by requiring a parseable `"routes"` key from the namespace index, and skips every downstream check if that fails. This is deliberate — an intercepting proxy answers with its own `403` *and headers*, which would otherwise make "no-store missing" and "S5 rejects anonymous" both report as confident results against a host that was never reached. A blocked run yields zero passes, never a clean bill of health.
+
+The raw commands follow, for running by hand. Everything marked **[AUDIT-0820]**, **[BRIEF-0818]** or **[UNVERIFIED]** should be re-established before Phase 1 starts.
 
 ```bash
 # Settles C-01 — authoritative route count, methods and args
