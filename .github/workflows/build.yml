@@ -40,6 +40,27 @@ jobs:
             exit 1
           fi
 
+      - name: Assert no connector credentials or raw HTML in client source
+        run: |
+          fail=0
+          # The connector plane authorises as an HMAC key with no WordPress
+          # user. Its credentials in a browser bundle would hand every visitor
+          # php:execute on production.
+          if grep -rn 'X-Bridgistic\|bridgistic_secret' apps/web/src; then
+            echo "::error::Connector HMAC credentials found in client source."
+            fail=1
+          fi
+          # Insightistic returns a pre-rendered html string from another plugin.
+          if grep -rn 'dangerouslySetInnerHTML' apps/web/src; then
+            echo "::error::dangerouslySetInnerHTML found; raw HTML injection is not permitted."
+            fail=1
+          fi
+          if grep -rn 'localStorage\|sessionStorage' apps/web/src; then
+            echo "::error::Browser storage reference found; auth state must stay server/runtime based."
+            fail=1
+          fi
+          exit $fail
+
       - name: Build
         run: npm run build
 
