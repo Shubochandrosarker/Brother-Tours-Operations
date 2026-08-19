@@ -2,8 +2,8 @@
 
 Phase 0 audit baseline for Brother Tours Operations Dashboard V4.1.
 
-**Prepared:** 2026-08-19
-**Scope:** Bridgistic endpoint inventory, Insightistic product status, website structure, security observations.
+**Prepared:** 2026-08-19 · **Revised:** 2026-08-19 with a live production runtime read (see §0.1)
+**Scope:** Bridgistic endpoint inventory, Insightistic **plugin** integration surface, website content inventory, security observations.
 
 ---
 
@@ -21,7 +21,9 @@ insightistic.com:443      → blocked
 
 Both a direct HTTP client and the harness fetch tool were denied by the same policy. The site is also not present in the connected WordPress.com account, so no authenticated management path exists either.
 
-**Consequence: nothing in this document is a fresh measurement of the live site.** This follows the provenance convention already established in [`wordpress-patches.md`](./wordpress-patches.md).
+**Consequence: nothing measured *from this environment* is a fresh reading of the live site.** That constraint still holds for anything marked **[REPO]** or **[DERIVED]**.
+
+**It no longer holds for the document as a whole.** Master Prompt v2.0 supplied a live connector read of the production runtime on 19 Aug 2026, and everything marked **[LIVE-0819]** comes from it. Those claims *are* fresh measurements — taken through the Bridgistic connector from a host with access, not from here. This follows the provenance convention already established in [`wordpress-patches.md`](./wordpress-patches.md).
 
 Every claim below carries one of these markers:
 
@@ -33,20 +35,48 @@ Every claim below carries one of these markers:
 | **[DERIVED]** | Computed in this document from **[REPO]** and **[AUDIT-0820]** inputs. Arithmetic is reproducible; the inputs are only as good as their own markers. |
 | **[UNVERIFIED]** | Asserted in the source material and **not** corroborated by any evidence available here. |
 | **[CONTRADICTED]** | Asserted in the source material and **actively contradicted** by evidence gathered here. |
+| **[LIVE-0819]** | **Read live from the production WordPress runtime on 19 Aug 2026** through the Bridgistic connector (`bridgistic_execute_php`, `bridgistic_fs_read`, `rest_get_server()->get_routes()`), via Master Prompt v2.0. **Strongest evidence in this document — it outranks every other marker.** |
 
 Anything marked **[AUDIT-0820]**, **[BRIEF-0818]**, **[UNVERIFIED]** or **[CONTRADICTED]** must be re-verified against the live site before it drives an irreversible decision. §7 lists the exact commands to do that.
+
+### 0.1 Correction log — 19 Aug 2026
+
+Master Prompt v2.0 supplied a live connector read of the production runtime. Where it contradicts this document, **v2.0 wins**. The following claims were wrong and are corrected in place:
+
+| # | Was | Now | Where |
+|---|---|---|---|
+| 1 | Insightistic treated as an unconfirmed **SaaS product at `insightistic.com`** | **Insightistic 4.4.0 is a WordPress plugin installed and active on the site.** The web search was answering the wrong question entirely — the subject was never a hosted app. GA4 and GSC are connected and returning real data. | §4 (rewritten) |
+| 2 | Nine `/woo/*` routes documented as live commerce surface | **WooCommerce is not installed.** The routes register but are dead. | §2.5 |
+| 3 | `GET /insightistic` listed as a live S1 route | **Returns 404** — the controller exists in source but is never registered (defect B-1). | §2.11 |
+| 4 | Route count "unresolved: 80 vs 47 vs 50+" | **Resolved: 80 route patterns**, confirmed by live `rest_get_server()->get_routes()`. The derived figure was correct. | §2.12 |
+| 5 | Site described as "WordPress + WooCommerce" | WordPress 7.0.4 / PHP 8.3.31, theme `Brother Tours` 2.5.0, no WooCommerce. | §1, §3 |
+
+The original wording is not preserved for its own sake — but the provenance markers are, so a reader can still see which claims rested on what.
 
 ---
 
 ## 1. Environment scan
 
-| Asset | URL | Status |
+| Asset | Value | Status |
 |---|---|---|
-| Production site | `https://www.brothertours.com/` | WordPress + WooCommerce **[AUDIT-0820]** · not reachable from here |
-| REST root | `https://www.brothertours.com/wp-json/` | Exposes full route index anonymously **[AUDIT-0820]** |
-| Bridgistic API | `https://www.brothertours.com/wp-json/bridgistic/v1/` | Active namespace **[AUDIT-0820]** |
-| App dashboard | `https://app.brothertours.com/` | Internal-only, expected **[AUDIT-0820]** |
-| Insightistic | `https://insightistic.com/` | **Product could not be confirmed — see §4** **[CONTRADICTED]** |
+| Production site | `https://www.brothertours.com/` | WordPress **7.0.4**, PHP **8.3.31**, theme `Brother Tours` 2.5.0 (template `wpistic`), Elementor 4.2.2, timezone `Asia/Vientiane` **[LIVE-0819]** |
+| Host path | `/home/u564261379/domains/brothertours.com/public_html` | **[LIVE-0819]** |
+| WooCommerce | — | **NOT INSTALLED.** Every `/woo/*` route and `woo:*` scope is dead. **[LIVE-0819]** |
+| REST root | `https://www.brothertours.com/wp-json/` | Exposes full route index anonymously **[LIVE-0819]** |
+| Bridgistic API | `https://www.brothertours.com/wp-json/bridgistic/v1/` | Active namespace, **80 route patterns** **[LIVE-0819]** |
+| App dashboard | `https://app.brothertours.com/` | Internal-only. `/healthz` payload and deployed commit still **[UNVERIFIED]** — blocked by robots.txt at the fetch layer |
+| **Insightistic** | **WordPress plugin, v4.4.0, active** | **Installed on the site. GA4 + GSC connected and returning real data. Exposes no REST API — see §4.** **[LIVE-0819]** |
+
+Active plugins that matter **[LIVE-0819]**:
+
+| Plugin | Version | Role |
+|---|---|---|
+| Bridgistic | 1.2.2 | HMAC-authenticated machine connector. **Not for browsers.** |
+| Brother Tours Operations API | 1.0.1 | Session-authenticated dashboard API. **This is the app's backend.** |
+| WPistic Tour Manager | 2.5.0 | Tours, destinations, experiences, departures, bookings |
+| Formistic | 2.5.0 | Form submissions, replies, notes, subscribers |
+| Brother Tours Content Studio | 1.0.2 | Gutenberg blocks, structured tour fields, SEO meta, a sitemap |
+| **Insightistic** | **4.4.0** | **GA4 + GSC + PageSpeed + AI. Admin-AJAX only, no REST API.** |
 
 ---
 
@@ -73,7 +103,9 @@ Two independent sources were reconciled:
 | Method + path pairs the app **never** calls | **55** |
 | Routes the app calls that are **missing** from the audit inventory | **0** |
 
-The zero in the last row matters: every route the shipped client consumes appears in the 2026-08-20 audit list. The business half of that audit is corroborated by this repository. The connector half (`/execute`, `/db/query`, `/fs/*`, `/snapshot/*`, `/plugins`, `/users`, `/options`, `/woo/*`, `/posts`, `/media`) is **not** corroborated by anything in this repo — the app never touches it — and rests on **[AUDIT-0820]** alone.
+The zero in the last row matters: every route the shipped client consumes appears in the 2026-08-20 audit list. The business half of that audit is corroborated by this repository.
+
+**The connector half is now independently confirmed too.** A live `rest_get_server()->get_routes()` read on 19 Aug 2026 returned **80 route patterns in the namespace** — matching the derived figure exactly. `/execute`, `/db/query`, `/fs/*`, `/snapshot/*`, `/plugins`, `/users`, `/options`, `/posts`, `/media` are all real and registered. The one correction is `/woo/*`: those routes register, but WooCommerce is not installed, so they are dead (§2.5). **[LIVE-0819]**
 
 ### 2.2 Security classification scheme
 
@@ -124,7 +156,9 @@ Owned by the **Bridgistic connector plugin**, not the Operations API. **[BRIEF-0
 
 `/users`, `/options` and `/plugins/toggle` are each independently sufficient for privilege escalation. None is used by the Operations app.
 
-### 2.5 WooCommerce routes — **S2 / S3**
+### 2.5 WooCommerce routes — **DEAD, not installed**
+
+> **[LIVE-0819] WooCommerce is not installed on this site.** These routes are registered by the connector but have no plugin behind them. The tiers below describe what they *would* expose if WooCommerce were ever activated — treat this as a latent-risk table, not live surface. Ignore every `woo:*` scope and `/woo/*` route in current work.
 
 | Method | Route | Tier | App? | Notes |
 |---|---|:--:|:--:|---|
@@ -138,7 +172,7 @@ Owned by the **Bridgistic connector plugin**, not the Operations API. **[BRIEF-0
 | GET | `/woo/inventory` | S1 | — | Stock levels. |
 | GET | `/woo/sales-summary` | S1 | — | Aggregate revenue. |
 
-The entire WooCommerce surface is unused by the Operations app today. Under V4.1 it becomes `/commerce/*` in `bt-ops/v2` and needs `bt_view_booking_pii` on the four **S2** routes.
+The entire WooCommerce surface is dead: no plugin, no data, and the Operations app never calls it. The V4.1 plan's `/commerce/*` route group in `bt-ops/v2` therefore has **nothing to migrate** — drop it from the migration scope until WooCommerce is actually adopted. The `woocommerce_pro` Insightistic addon is off for the same reason (§4.1).
 
 ### 2.6 Authentication routes
 
@@ -236,80 +270,224 @@ Connector-owned. None consumed by the app. **[AUDIT-0820]**
 | POST | `/memory/delete` | S3 | |
 | GET | `/usage` | S1 | |
 | GET | `/approvals/status` | S1 | |
-| GET | `/insightistic` | S1 | Returns `active` / `version` only — **no analytics data**. See §4. |
+| GET | `/insightistic` | — | **404 — NOT REGISTERED.** `src/Insightistic/InsightisticController.php` exists but is absent from the `plugins_loaded` boot list. Dead code documented as live in the plugin README (defect **B-1**). Registering it is task 1 of §4.6. **[LIVE-0819]** |
 
 `/playbooks/run` and `/schedules/run-now` trigger server-side execution. They belong in the same restriction envelope as `/execute`.
 
-### 2.12 Route count discrepancy — **unresolved**
+### 2.12 Route count — **RESOLVED at 80** **[LIVE-0819]**
 
-Three different totals exist for this namespace and they do not agree:
+Three totals were in conflict. A live `rest_get_server()->get_routes()` read on 19 Aug 2026 settled it.
 
-| Source | Figure |
-|---|---|
-| V4.1 build prompt **[AUDIT-0820]** | "50+ endpoints active" |
-| Incident brief **[BRIEF-0818]** | "All 47 `bridgistic/v1` operations routes are registered" |
-| This document **[DERIVED]** | 80 distinct routes / 107 method+path pairs total; of which **38 distinct routes / 52 method+path pairs** are consumed by the Operations client |
+| Source | Figure | Verdict |
+|---|---|---|
+| V4.1 build prompt **[AUDIT-0820]** | "50+ endpoints active" | Vague but not wrong — an undercount phrased as a floor. |
+| Incident brief **[BRIEF-0818]** | "All 47 `bridgistic/v1` operations routes are registered" | Counts the **operations plane only**, not the whole namespace. Not comparable to 80. |
+| This document **[DERIVED]** | 80 distinct routes / 107 method+path pairs | ✅ **Confirmed exactly.** |
+| Live connector read **[LIVE-0819]** | **80 route patterns in the namespace** | **Authoritative.** |
 
-Note the 38/52 figure is "consumed by the shipped client", which is measurable here, **not** "registered by the operations plugin", which is not — plugin ownership per route cannot be established without reading the two plugins' source. The two sets are probably close but they are not the same question, and the brief's 47 may well be counting the second one. The gap is most likely a difference in what each source counted as an "operations route" versus a connector route — but that is an inference, not a finding.
+The derived reconciliation was correct. The apparent conflict was a category error: the brief's 47 counts one plane, the 80 counts the namespace. Both can be true at once, and comparing them was never meaningful.
 
-**This must be settled by a live `GET /wp-json/bridgistic/v1/` read before the `bt-ops/v2` migration begins**, because the migration's completeness check depends on knowing the true denominator. See §7.
+The earlier caution about "38/52 consumed vs registered" also resolves: v2.0's plane split (§2.3 of that document) assigns 33 route patterns to the operations plane and the rest to the connector, against the 38 this client actually calls. The remaining difference is `/system/health` and the four `/auth/session*` variants being counted differently across sources — a labelling difference, not a missing route.
 
----
-
-## 3. Website structure
-
-**All of §3 is [AUDIT-0820] — carried forward, not verified here.** `sitemap.xml` could not be fetched.
-
-- **Platform:** WordPress, custom `wpistic` theme
-- **Commerce:** WooCommerce (products, orders, customers endpoints active)
-- **Forms:** Formistic, submissions endpoint active
-- **Regions:** Northern, Central and Southern Laos — **6 destinations**
-- **Tours:** Signature journeys with fixed annual departures
-- **Reviews:** Google / TripAdvisor integration visible
-- **Founder:** Ken FJ Her, Licensed Lao National Tour Guide since 2010
-
-**Caution on the founder profile and the "6 regions" figure.** These are business facts about a named real person and a live commercial catalogue. V4.1 §24 forbids inventing guide details or business facts. Neither could be checked here. Confirm both against the live site — and with the business — before either appears in shipped UI, marketing copy, or seed data.
+**Consequence for the `bt-ops/v2` migration:** the denominator is now known. 80 patterns total; the operations plane is what moves; the connector plane stays. That unblocks the migration's completeness check.
 
 ---
 
-## 4. Insightistic — **NOT CONFIRMED**
+## 3. Website structure and content inventory
 
-**Status: [CONTRADICTED]. The premise that `insightistic.com` is a confirmed AI analytics platform did not survive checking.**
+**Superseded by [LIVE-0819].** The earlier version of this section carried the 2026-08-20 audit forward unverified. A live runtime read replaces most of it — including one figure that turned out to be wrong.
 
-The brief asked to record Insightistic as *"verified — a real AI analytics platform (`insightistic.com`) with GA4, GSC, PageSpeed, revenue analytics, and white-label reporting."* That verification could not be reproduced, and the available evidence points the other way.
+### 3.1 Live content inventory **[LIVE-0819]**
 
-**What was attempted:**
+| Object | Published | Draft | Pending | Trash | Manageable from the app today? |
+|---|--:|--:|--:|--:|---|
+| `post` (articles) | 6 | — | — | 4 | **No** |
+| `page` | 40 | 8 | 3 | 1 | **No** |
+| `attachment` (media) | 78 | — | — | — | **No** |
+| `wpistic_tour` | 37 | 11 | 1 | — | Yes |
+| `wpistic_destination` | **10** | — | — | — | Yes |
+| `wpistic_experience` | **0** | — | — | — | Yes |
 
-| Check | Result |
-|---|---|
-| Direct fetch of `insightistic.com` / `www.insightistic.com` | **Blocked by egress policy** — no signal either way |
-| Web search: `"insightistic"` (exact) | **No analytics product.** Only hit is `insightistic.blogspot.com`, an unrelated personal philosophy blog from Zambia |
-| Web search: Insightistic + AI analytics + WordPress/WooCommerce + GA4 + GSC + PageSpeed + white-label | **No result matching the product.** Returned only unrelated tools (Site Kit, MonsterInsights, Analytify, InsightBase, Insightful.io) |
-| Web search scoped to `insightistic.com`, wordpress.org, github.com, producthunt.com, x.com, linkedin.com | **No trace of the product on any of them** |
+**Correction: destinations are 10, not 6.** The "6 destinations across 3 Laos regions" figure came from the 2026-08-20 audit and does not match the runtime. Do not use 6 anywhere. Whether the 10 destination records map onto 3 marketing regions is a separate content question the runtime cannot answer — confirm with the business before any region-based UI or copy.
 
-**What this does and does not mean.** It is *not* proof the product does not exist — a private, unlisted, or newly launched plugin can legitimately have zero search-index footprint, and the domain itself was unreachable, so its absence from the index is the only real evidence here. What it does mean is that **the "verified" claim has no support that can be reproduced**, and V4.1 §24 explicitly forbids treating unverified business facts as established.
+`wpistic_experience` has **zero records**. The app ships a full Experiences CRUD screen for an empty post type — an empty state, not an edge case.
 
-**The one corroborated fact** is from the audit itself and is a *negative*: the `/insightistic` endpoint returns `active` and `version` only. **No GA4, GSC, PageSpeed or revenue data is exposed through the Operations API today.** **[AUDIT-0820]**
+### 3.2 Taxonomies — a content defect **[LIVE-0819]**
 
-**Consequence for the plan.** Phase 2 (Insightistic Adapter) is specified as an adapter over an existing product's internal PHP interfaces. If that product is not what the brief assumes, Phase 2 has no foundation and the `/analytics/*` route group in `bt-ops/v2` has nothing to adapt.
+| Taxonomy | Terms |
+|---|--:|
+| `category` | 7 |
+| `post_tag` | **0** |
+| `tour_category` | **0** |
+| `tour_destination` | **0** |
+| `tour_duration_range` | **0** |
+| `tour_difficulty` | **0** |
+| `tour_season` | **0** |
 
-**Blocker — requires business input before Phase 2 is scheduled:**
+Five registered tour taxonomies with nothing in them. **This is a content defect, not an API defect — surface it, do not silently populate it.** Any tag or tour-taxonomy UI must treat "create the first term" as the primary path, not the exception.
 
-1. Confirm Insightistic exists and is installed on `brothertours.com` (`GET /wp-json/bridgistic/v1/plugins`).
-2. Provide access to its source so its real service classes can be audited, as Phase 0 requires.
-3. Confirm GA4 / GSC / PageSpeed are actually connected and syncing, not merely supported.
+### 3.3 Users and article meta **[LIVE-0819]**
 
-Until 1–3 are answered, **do not build the analytics adapter** and do not show analytics UI backed by assumed data. V4.1 §24 requires an explicit `Not configured` state instead.
+**2 users, both administrators.** All 6 articles bylined `Wordpressistic`.
+
+Meta keys already in production use on every article:
+
+```
+bt_seo_title  ·  bt_seo_description  ·  _wpistic_tone  ·  _thumbnail_id
+_seoistic_title  ·  _seoistic_description  ·  _seoistic_score
+_seoistic_audit_report  ·  _seoistic_last_audit
+```
+
+The `_seoistic_*` keys are **audit output owned by SEOISTIC — read-only**. A dashboard may display the score and last-audit date; it must never write them. `bt_seo_title` and `bt_seo_description` are the writable pair.
+
+### 3.4 Business data volumes **[LIVE-0819]**
+
+| Table | Rows |
+|---|--:|
+| `wp_wpistic_bookings` | 3 |
+| `wp_wpistic_formistic_submissions` | 7 |
+| `wp_wpistic_formistic_subscribers` | 1 |
+| `wp_wpistic_connections` | 1 |
+| `wp_wpistic_formistic_impressions` | 122 |
+| `wp_wpistic_invoices` | **0** |
+| `wp_wpistic_transactions` | **0** |
+
+**Every list view needs a real empty state.** With 1 subscriber and 0 invoices, empty is the normal case here, not the edge case. A dashboard that looks broken when a table is empty will look broken most of the time.
+
+### 3.5 Still unverified
+
+These came from the 2026-08-20 audit and the runtime read does not cover them:
+
+- **Regions:** Northern / Central / Southern Laos as a 3-region structure — **[UNVERIFIED]**
+- **Reviews:** Google / TripAdvisor integration visible on the front end — **[UNVERIFIED]**
+- **Founder:** Ken FJ Her, Licensed Lao National Tour Guide since 2010 — **[UNVERIFIED]**
+
+The founder profile is a business fact about a named real person. V4.1 §24 forbids inventing guide details. Confirm with the business before it appears in shipped UI, marketing copy, or seed data.
+
+---
+
+## 4. Insightistic — the WordPress plugin
+
+**Status: [LIVE-0819]. Installed, active, and configured. This section replaces an earlier version that got the subject wrong.**
+
+### 4.0 Correcting the record
+
+An earlier draft of this section investigated **`insightistic.com` as a hosted SaaS product** and reported it unconfirmed on the strength of three web searches that found no such product.
+
+**That was the wrong question.** Insightistic is a **WordPress plugin installed on `brothertours.com`** — read from the live runtime, not from a marketing site. Whether a public product page exists at `insightistic.com` is irrelevant to this project and has no bearing on Phase 2. A plugin's absence from a search index was never evidence about a plugin.
+
+The practical consequence: **Phase 2 is not blocked.** The earlier draft escalated a non-blocker to management. The real constraint is narrower and is §4.2.
+
+### 4.1 Verified configuration — 19 Aug 2026 **[LIVE-0819]**
+
+Plugin **Insightistic 4.4.0**, active.
+
+| Integration | Status | Detail |
+|---|---|---|
+| **GA4** | ✅ **Connected** | Property ID `461590374`. Service-account email + private key present. OAuth token cached (`_transient_insightistic_access_token_ga4`). |
+| **Google Search Console** | ✅ **Connected — returns real data** | Property `https://www.brothertours.com`. Live call executed successfully. |
+| **PageSpeed Insights** | ⚠️ **Key present, no default target** | API key encrypted at `insightistic_pagespeed_api_key_enc`. `insightistic_pagespeed_default_url` is **empty**. |
+| GA4 Measurement Protocol | ❌ Not configured | `insightistic_measurement_id` and `..._secret` both empty. No server-side event sending. |
+| Cloudflare | ❌ Not configured | account id / zone id / token all empty. |
+| AI | ✅ Enabled | Provider `groq`, model `llama-3.1-8b-instant`, skill profile `basic`. |
+| Addons | — | `email_automations` ✅ · `seo_opportunities` ✅ · `anomaly_alerts` ✅ · `content_lab` ✅ · `woocommerce_pro` ❌ (no WooCommerce on this site) |
+| License | ✅ `active`, plan `free` | Features: `basic_analytics`, `ai_insights`, `email_audit_automation`. 1 of 3 activations used. |
+| 404 monitor | ✅ Enabled | Log is **41 KB** in a single option. |
+| Last full sync | `2026-08-19 19:06:03` | "Full sync complete", "Broken links: ok". |
+| Email digest | Weekly, Mon 09:00 | To `shuvosarker42069@gmail.com`, `enquiry@brothertours.com`. |
+| Cron | 3 hooks | `insightistic_run_sync` (daily) · `insightistic_license_validate` (daily) · `insightistic_send_email_automation` (weekly Mon 09:00). |
+
+**Revenue analytics and white-label reporting** — claimed in the original V4.1 brief — are **not** in evidence. The license is the free plan (`basic_analytics`, `ai_insights`, `email_audit_automation`), `woocommerce_pro` is off, and there is no WooCommerce to derive revenue from. Do not design a revenue view on this data source. **[LIVE-0819]**
+
+### 4.2 The real constraint: no REST API
+
+Live namespace list: `oembed/1.0`, `wp/v2`, `wp-block-editor/v1`, `trustindex/v1`, `elementor-one/v1`, `bridgistic/v1`, `wpistic/v1`, `elementor/v1*`, `elementor-ai/v1`, `formistic/v1`, `wp-site-health/v1`, `wp-abilities/v1`.
+
+**There is no `insightistic` namespace.** The plugin is **admin-AJAX only**. The dashboard cannot read GA4/GSC/PSI without a server-side adapter inside the operations plane. **[LIVE-0819]**
+
+This is a build task, not a blocker — the data exists and is reachable from PHP.
+
+### 4.3 The PHP surface an adapter calls — verified by reflection **[LIVE-0819]**
+
+```php
+Insightistic_GA::get_dashboard_data( int $days = 28, bool $force_refresh = false )
+Insightistic_GA::get_sync_payload( int $days = 28 )
+Insightistic_GSC::get_sync_payload( int $days = 28 )
+Insightistic_PageSpeed::get_sync_payload( ?string $url = null )
+Insightistic_System_Status::collect()        // static
+Insightistic_Sync::last_sync()               // static
+Insightistic_Sync::logs()                    // static
+Insightistic_Sync::settings()                // static
+Insightistic_Auth::get_token( string $scope, string $cache_key = 'ga4' )  // static
+```
+
+`Insightistic_GA`, `Insightistic_GSC` and `Insightistic_PageSpeed` are **instance** classes — `new Insightistic_GSC()` then call. Guard every call with `class_exists()` and `try/catch (\Throwable)`: the plugin can be deactivated, and the dashboard must degrade rather than 500.
+
+Verified response shapes:
+
+```
+Insightistic_GSC::get_sync_payload(28) →
+  { daily:   [ { date, clicks, impressions, ctr, avg_position }, … 29 rows ],
+    queries: [ { query, clicks, impressions, ctr, position },     … 250 rows ],
+    pages:   [ { page_path, clicks, impressions, ctr, position }, … 250 rows ] }
+
+Insightistic_GA::get_sync_payload(28) →
+  { daily:    [],                          // ⚠️ EMPTY on this site
+    channels: [ { dimension_value, sessions, users, views, conversions,
+                  revenue, engagement_rate }, … 7 rows ] }
+
+Insightistic_GA::get_dashboard_data(28) →
+  { html, chartData:{labels,sessions,revenue,users}, overview, countries[10],
+    pages[10], channels[14], top_posts[], structured_data:{channels,totals},
+    partial, cached_at }
+
+Insightistic_System_Status::collect() →
+  [ { label, status: pass|warn|fail, detail, optional, fix_url, fix_label }, … 13 checks ]
+```
+
+### 4.4 Three findings that constrain the build
+
+1. **`GA::get_sync_payload().daily` returns `[]`** while `channels` returns 7 rows. Either the GA4 daily-dimension query fails silently or the property has no daily data in range. **Do not build a GA4 daily-traffic chart on it** — a chart rendering an empty array as a flat line is worse than no chart. Render an explicit "GA4 daily data unavailable" state and investigate the cause. Open decision **D-4**.
+
+2. **`get_dashboard_data()` returns a pre-rendered `html` string** built by another plugin. **Never inject it into the React tree.** Use `structured_data`, `chartData`, `countries`, `pages`, `channels` only. Strip `html` in the controller so it cannot reach the client by accident. No `dangerouslySetInnerHTML` anywhere.
+
+3. **`PageSpeed::get_sync_payload()` makes a live Google PSI call** — routinely 10–30 s. It must never run inside a synchronous dashboard request; it will hit the PHP timeout. Serve a cached transient and schedule runs via a single-event cron.
+
+### 4.5 Secrets that must never leave the server
+
+`/analytics/status` reports **booleans** — `"configured": true` — never values. These option keys must never appear in any REST response; assert it in a unit test:
+
+```
+insightistic_api_private_key
+insightistic_pagespeed_api_key_enc
+insightistic_groq_key
+insightistic_connector_secret
+insightistic_crypto_secret
+```
+
+Also: `insightistic_pagespeed_default_url` is empty, so an adapter must default to `home_url('/')` and **validate the target is same-origin** — otherwise `/analytics/pagespeed` becomes an open PSI relay pointable at arbitrary hosts.
+
+### 4.6 What Phase 2 actually needs
+
+Not business input. Three engineering tasks:
+
+1. Register the existing `InsightisticController` — it is dead code today (§2.11, defect B-1).
+2. Build `Insightistic\AnalyticsController` in the operations plane over the §4.3 surface, with transient caching (GSC/GA4 ~1 h; PSI ~6 h), the §4.5 secret suppression, and `class_exists()` + `try/catch` guards throughout.
+3. Resolve the empty `daily[]` finding before any GA4 time-series UI.
+
+**Build order: Search Console first.** It is the strongest verified source — 29 daily rows × 250 queries × 250 pages, confirmed live. GA4 is partial. PageSpeed has no default target.
 
 ---
 
 ## 5. Security observations
 
-### 5.1 Anonymous REST index exposes the full route map — **confirmed by two sources**
+### 5.1 Anonymous REST index exposes the full route map — **confirmed live [LIVE-0819]**
 
 `GET /wp-json/` returns the standard WordPress REST index, which enumerates `bridgistic/v1` **to unauthenticated callers** **[AUDIT-0820]**. The incident brief records the same collision from the other side: the namespace *"now enumerates 47 operations routes alongside Bridgistic's `execute`, `db/query`, `fs/write`, `fs/delete` and `users` routes in a single public index"* **[BRIEF-0818]**.
 
 An anonymous visitor therefore learns that a code-execution endpoint, a SQL runner and a filesystem writer exist at known paths, along with their argument schemas.
+
+A third, live confirmation: `GET /wp-json/bridgistic/v1` enumerates **80 routes including `execute`, `db/query` and `fs/write` in one anonymous index** (v2.0 defect **B-4**). **[LIVE-0819]**
 
 Filtering is tracked as **T-081** and is listed in `wordpress-patches.md` §6.4 without a diff. **It remains unshipped.**
 
@@ -343,19 +521,34 @@ Shipping the namespace change without updating these first **would make the veri
 
 ### 5.4 Two parallel authentication paths
 
-`/oauth/token` is live alongside the cookie-session routes **[AUDIT-0820]**. The app uses only cookie sessions **[REPO]**. Only the cookie path has been reviewed — the incident brief's CORS, CSRF, capability and cookie-attribute findings all concern `SessionController`.
+**Now explained. [LIVE-0819]** `/oauth/token` belongs to the **connector plane**, not the operations plane. The two planes have genuinely incompatible auth models sharing one namespace:
 
-An unreviewed second path to the same authenticated surface is a gap. Establish whether `/oauth/token` is in use by anything; if not, it belongs in the §5.2 restriction envelope.
+| | Connector plane (Bridgistic 1.2.2) | Operations plane (BT Ops API 1.0.1) |
+|---|---|---|
+| Auth | HMAC-SHA256 request signing, server-held secret | HttpOnly `bt_ops_session` cookie + `X-BT-CSRF` |
+| Authorises as | A **key** with a fixed scope set — **no WordPress user** | A **WordPress user**, capability-checked per request |
+| Envelope | `{ ok: true, data }` | `{ success: true, data, meta }` |
+| Browser-safe | **Never** | Yes |
 
-### 5.5 Auth responses are cacheable — highest-value backend fix, still unshipped
+The connector key on this site holds **all 25 scopes, including `php:execute`** — plus `db:write`, `fs:write`, `plugins:manage`, `options:write`. **[LIVE-0819]**
+
+This sharpens §5.2 into a hard architectural rule rather than a cleanup suggestion:
+
+> **The SPA may only ever call operations-plane routes.** Signing an HMAC request needs the shared secret. Putting it in the browser hands every visitor `php:execute` on production. Putting it in `server.mjs` is barely better — it turns a static file server into a credential holder authorising as a *key with no user identity*, so `crm_sales` would wield the same power as `administrator` and the WordPress capability model is bypassed entirely.
+
+There is no proxy option. Content and analytics endpoints must be built as new **operations-plane** controllers.
+
+### 5.5 Auth responses are cacheable — **re-confirmed live**, still unshipped
 
 The site runs an `advanced-cache.php` drop-in with no external object cache. If `GET /auth/session` is ever page-cached, one operator's session state is served to every operator **[BRIEF-0818]**.
 
+Re-confirmed by the live source read as v2.0 defect **B-6**. **[LIVE-0819]**
+
 The fix is written and reviewed in `wordpress-patches.md` §6.2 (Tier 3, "Do this") — `rest_pre_serve_request` forcing `no-store` on the namespace, plus a `DONOTCACHEPAGE` guard in `wp-config.php`. **Not applied.** Headers only; no schema, data or behaviour change.
 
-### 5.6 Session cookie clear-domain mismatch — still unshipped
+### 5.6 Session cookie clear-domain mismatch — **re-confirmed live**, still unshipped
 
-`issue_session()` sets `'domain' => ''`, making `bt_ops_session` host-only. More seriously, `clear_cookie()` must use the *same* domain — a cookie cleared under a different domain is never cleared, leaving **phantom sessions alive after logout** **[BRIEF-0818]**. Diff written in `wordpress-patches.md` §6.1 (Tier 3). **Not applied.**
+`issue_session()` sets `'domain' => ''`, making `bt_ops_session` host-only. More seriously, `clear_cookie()` must use the *same* domain — a cookie cleared under a different domain is never cleared, leaving **phantom sessions alive after logout**. Re-confirmed as v2.0 defect **B-5**. **[LIVE-0819]** Diff written in `wordpress-patches.md` §6.1 (Tier 3). **Not applied.**
 
 ### 5.7 Frontend security posture — verified good **[REPO]**
 
@@ -385,18 +578,43 @@ Items 1–4 are independent of the namespace migration and can ship without it. 
 
 ---
 
-## 6. Data conflict register — seed entries
+## 6. Data conflict register
 
-For `docs/V4-DATA-CONFLICT-REGISTER.md` (V4.1 §19 Phase 0).
+For `docs/V4-DATA-CONFLICT-REGISTER.md` (V4.1 §19 Phase 0). Five of the six original conflicts are now closed by the live read.
 
-| # | Conflict | Sources | Resolution |
+| # | Conflict | Status | Resolution |
 |---|---|---|---|
-| C-01 | Namespace route count: "50+" vs "47" vs 80/107 derived | AUDIT-0820, BRIEF-0818, DERIVED | Live `GET /wp-json/bridgistic/v1/` |
-| C-02 | Insightistic product existence and capabilities | Brief asserts verified; no reproducible evidence found | Business input — §4 blocker |
-| C-03 | Per-route capability gates unknown; only `bt_manage_operations` is documented, at namespace level | BRIEF-0818 | Source read of `brother-tours-operations-api` v1.0.1 |
-| C-04 | "6 destinations" across 3 Laos regions | AUDIT-0820 only | Live sitemap + business confirmation |
-| C-05 | Founder profile (Ken FJ Her, licensed since 2010) | AUDIT-0820 only | Business confirmation before any UI use |
-| C-06 | `/oauth/token` purpose and consumers | AUDIT-0820 only | Source read + access-log review |
+| C-01 | Namespace route count: "50+" vs "47" vs 80/107 derived | ✅ **CLOSED** | **80 route patterns**, live-confirmed. The 47 counted the operations plane only — a category error, not a conflict. §2.12 **[LIVE-0819]** |
+| C-02 | Insightistic existence and capabilities | ✅ **CLOSED** | **Plugin v4.4.0, installed and active.** GA4 + GSC connected and returning real data. The question was miscast as being about a SaaS product; it never was. §4 **[LIVE-0819]** |
+| C-03 | Per-route capability gates | ⚠️ **PARTIAL** | `bt_manage_operations` is held by **7 roles**; only `administrator` also holds `edit_posts` / `publish_posts` / `upload_files` / `manage_options`. Per-route gates inside the operations plugin still need a source read. See C-07. **[LIVE-0819]** |
+| C-04 | "6 destinations" across 3 Laos regions | ⚠️ **HALF-CLOSED** | **Destinations are 10, not 6** — the audit figure was wrong (§3.1). The 3-region structure remains **[UNVERIFIED]** and needs business confirmation. |
+| C-05 | Founder profile (Ken FJ Her, licensed since 2010) | ❌ **OPEN** | Still **[UNVERIFIED]**. Business confirmation required before any UI use. |
+| C-06 | `/oauth/token` purpose and consumers | ✅ **CLOSED** | Belongs to the **connector plane** — HMAC key auth, no WordPress user. Never callable from a browser. §5.4 **[LIVE-0819]** |
+| **C-07** | **The capability trap** *(new)* | ❌ **OPEN** | Six of seven `bt_manage_operations` roles lack `edit_posts`; `editor`/`author` cannot sign in to the dashboard at all. Harmless today — both live users are administrators — but it bites the moment a real editor is hired. §6.1 |
+| **C-08** | **GA4 `daily[]` returns empty** *(new)* | ❌ **OPEN** | `channels` returns 7 rows, `daily` returns `[]`. Blocks any GA4 time-series UI. Investigate before building the chart. §4.4 |
+| **C-09** | **Three sitemap generators** *(new)* | ❌ **OPEN** | `/sitemap.xml` (theme/SEOISTIC), Content Studio rewrites, and WP core rules coexist — while `/wp-sitemap.xml` returns **404**. Live SEO defect, out of scope for the dashboard. Log against the SEO backlog. **[LIVE-0819]** |
+
+### 6.1 C-07 — the capability trap, in full
+
+`bt_manage_operations` gates dashboard **login**. It does not grant content capabilities. **[LIVE-0819]**
+
+| Role | `bt_manage_operations` | `edit_posts` | `publish_posts` | `upload_files` | `manage_options` |
+|---|:--:|:--:|:--:|:--:|:--:|
+| `administrator` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `tour_staff` | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `wpistic_travel_manager` | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `wpistic_travel_agent` | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `crm_owner` | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `crm_manager` | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `crm_sales` | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `editor` / `author` | ❌ | ✅ | ✅ | ✅ | ❌ |
+
+Two consequences for any content UI:
+
+1. Content routes must check the **real WordPress capabilities** — `edit_posts`, `publish_posts`, `delete_post`, `upload_files`, and per-object `edit_post( $id )` — **in addition to** the `bt_manage_operations` login gate. A blanket `bt_manage_operations` check would hand content editing to all seven roles.
+2. `GET /auth/session` already returns the user's full `capabilities` array. Navigation and button state must be driven from it: a user without `edit_posts` should not see a Content section at all — no dead links, no 403-on-click.
+
+**Do not grant `edit_posts` to `tour_staff` or the `crm_*` roles as a side effect of any task.** That is a standalone business decision.
 
 ---
 
@@ -435,9 +653,10 @@ for r in execute db/query fs/list fs/read; do
     "https://www.brothertours.com/wp-json/bridgistic/v1/$r"
 done
 
-# §4 — is Insightistic actually installed, and what does its endpoint return?
-curl -s https://www.brothertours.com/wp-json/bridgistic/v1/insightistic   # needs auth
-curl -s https://www.brothertours.com/wp-json/bridgistic/v1/plugins        # needs auth
+# §4 — CLOSED by the live read: plugin v4.4.0 is installed and active.
+# /insightistic returns 404 (controller never registered, defect B-1) — expect 404, not data.
+curl -s -o /dev/null -w '%{http_code}\n' \
+  https://www.brothertours.com/wp-json/bridgistic/v1/insightistic          # → 404 until B-1 is fixed
 
 # §3 — site structure
 curl -s https://www.brothertours.com/sitemap.xml | grep -oE '<loc>[^<]+</loc>' | head -50
@@ -452,14 +671,33 @@ The S5 probe sends an empty POST deliberately — it is an authorization check, 
 
 ## 8. Phase 0 exit status
 
+Updated after the 19 Aug 2026 live connector read.
+
 | Phase 0 item (V4.1 §19) | Status |
 |---|---|
-| Verify all live endpoints | ⚠️ **Blocked** — egress denied. Inventory reconciled from two sources instead; §7 has the commands. |
+| Verify all live endpoints | ✅ **DONE** — 80 route patterns confirmed by live `rest_get_server()->get_routes()`. **[LIVE-0819]** |
 | Create `docs/V4-LIVE-BASELINE.md` | ✅ This document. |
-| Create `docs/V4-DATA-CONFLICT-REGISTER.md` | ⚠️ Seed entries in §6; not yet a standalone file. |
-| Audit Insightistic source for real interfaces | ❌ **Blocked** — product unconfirmed and source unavailable. §4. |
+| Create `docs/V4-DATA-CONFLICT-REGISTER.md` | ⚠️ §6 holds the full register (9 entries, 4 closed); not yet split into a standalone file. |
+| Audit Insightistic source for real interfaces | ✅ **DONE** — plugin v4.4.0 confirmed; 9-method PHP surface captured by reflection with verified response shapes. §4.3 **[LIVE-0819]** |
 | Audit Repos A and B file structures | ⚠️ Repo B (this one) audited. Repo A not present in this session. |
 
-**Phase 0 is not complete and Phase 1 should not be treated as unblocked.** Two items are blocked on access that this environment cannot obtain, and one (§4) is blocked on a business answer rather than on tooling.
+**Phase 0 is substantially complete.** Both items that were blocked on access are now resolved by the live read.
 
-What Phase 0 did establish: the business half of the namespace is corroborated by shipped code, the app's true dependency surface is 52 of 107 method+path pairs, and the highest-value security fix (§5.2) turns out to carry no compatibility cost for this application.
+### 8.1 What changed since the first draft
+
+The first version of this document was written from an egress-blocked environment and hedged accordingly. Most of its reasoning held up — the 80/107 route reconciliation was exactly right, and the §5.2 finding about unused connector surface survived contact with the live runtime and got stronger.
+
+One conclusion did not hold: **§4 investigated the wrong subject.** It treated Insightistic as a SaaS product to be verified at `insightistic.com` and escalated a non-existent blocker to management on the strength of web searches that could never have answered the question. Insightistic is a WordPress plugin; a plugin's absence from a search index is not evidence about the plugin. The lesson is narrow and worth keeping: when a "product" appears in a WordPress build brief, check the plugin list first, and treat an unreachable marketing domain as no signal at all rather than as weak negative signal.
+
+### 8.2 Remaining open items
+
+| Item | Owner | Blocks |
+|---|---|---|
+| GA4 `daily[]` empty (C-08) | Engineering | GA4 time-series UI |
+| Founder profile unverified (C-05) | Business | Any UI or copy naming the founder |
+| 3-region structure unverified (C-04) | Business | Region-based navigation or copy |
+| Capability trap (C-07) | Business decision | Non-admin content editing |
+| `app.brothertours.com/healthz` payload + deployed commit | Engineering | Confirming what is actually live |
+| Namespace migration `bt-ops/v2` (D-1) | Product decision | — deliberately unsequenced |
+
+**Immediately actionable, no decision required:** restrict the unused connector surface (§5.2), ship `no-store` on auth responses (§5.5), fix the cookie clear-domain (§5.6), filter the anonymous REST index (§5.1), and register `InsightisticController` (§4.6). None of these depends on an open question above.
