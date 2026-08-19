@@ -10,6 +10,13 @@ Production-oriented React/Vite operations console for Brother Tours.
 - **Authentication:** WordPress-authoritative HttpOnly session cookie plus runtime-only `X-BT-CSRF` token.
 - **Business data:** never duplicated into the frontend or a second application database.
 
+The WordPress side — the `brother-tours-operations-api` plugin this app talks to,
+including the `/content/*`, `/media`, `/analytics/*` and `/site/*` controllers
+that back the Content, Media, Analytics and Site screens — lives in
+[`Shubochandrosarker/brother-tours-laos`](https://github.com/Shubochandrosarker/brother-tours-laos)
+under `plugins/brother-tours-operations-api`. This repository contains only the
+React console.
+
 ## Implemented modules
 
 - Secure sign-in and session hydration

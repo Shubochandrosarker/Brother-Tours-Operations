@@ -467,15 +467,28 @@ insightistic_crypto_secret
 
 Also: `insightistic_pagespeed_default_url` is empty, so an adapter must default to `home_url('/')` and **validate the target is same-origin** — otherwise `/analytics/pagespeed` becomes an open PSI relay pointable at arbitrary hosts.
 
-### 4.6 What Phase 2 actually needs
+### 4.6 Phase 2 status — built, not yet deployed
 
-Not business input. Three engineering tasks:
+Phase 2 needed three engineering tasks, not business input. Two are done:
 
-1. Register the existing `InsightisticController` — it is dead code today (§2.11, defect B-1).
-2. Build `Insightistic\AnalyticsController` in the operations plane over the §4.3 surface, with transient caching (GSC/GA4 ~1 h; PSI ~6 h), the §4.5 secret suppression, and `class_exists()` + `try/catch` guards throughout.
-3. Resolve the empty `daily[]` finding before any GA4 time-series UI.
+| # | Task | Status |
+|---|---|---|
+| 1 | Register the existing `InsightisticController` (§2.11, defect B-1) | ✅ **Done** — restored to the `plugins_loaded` boot list, with its capability moved from `edit_posts` to `bt_view_health` |
+| 2 | Build `Insightistic\AnalyticsController` over the §4.3 surface | ✅ **Done** — transient caching (GSC/GA4 1 h, PSI 6 h), §4.5 secret suppression, `class_exists()` + `try/catch` throughout |
+| 3 | Resolve the empty `daily[]` before any GA4 time-series UI | ❌ **Open** (C-08) — responses carry `dailyAvailable: false` and the UI renders an explicit unavailable state instead of a chart |
 
-**Build order: Search Console first.** It is the strongest verified source — 29 daily rows × 250 queries × 250 pages, confirmed live. GA4 is partial. PageSpeed has no default target.
+Both live in [`brother-tours-laos`](https://github.com/Shubochandrosarker/brother-tours-laos)
+under `plugins/brother-tours-operations-api`, alongside the `/content/*`,
+`/media` and `/site/*` controllers. **Merged, but not deployed** — the plugin
+still has to be copied onto the host behind a Bridgistic snapshot.
+
+The §4.3 surface was subsequently confirmed against the real Insightistic 4.4.0
+source: all six classes exist, `GA`/`GSC`/`PageSpeed` are instance classes,
+`Sync`/`System_Status` are static, and all seven option keys are present.
+
+**Build order held: Search Console first.** It is the strongest verified source
+— 29 daily rows × 250 queries × 250 pages. GA4 is partial. PageSpeed has no
+default target.
 
 ---
 
@@ -700,4 +713,11 @@ One conclusion did not hold: **§4 investigated the wrong subject.** It treated 
 | `app.brothertours.com/healthz` payload + deployed commit | Engineering | Confirming what is actually live |
 | Namespace migration `bt-ops/v2` (D-1) | Product decision | — deliberately unsequenced |
 
-**Immediately actionable, no decision required:** restrict the unused connector surface (§5.2), ship `no-store` on auth responses (§5.5), fix the cookie clear-domain (§5.6), filter the anonymous REST index (§5.1), and register `InsightisticController` (§4.6). None of these depends on an open question above.
+**Immediately actionable, no decision required:** restrict the unused connector
+surface (§5.2), ship `no-store` on auth responses (§5.5), fix the cookie
+clear-domain (§5.6), and filter the anonymous REST index (§5.1). None depends on
+an open question above.
+
+`InsightisticController` registration is no longer on that list — it is fixed in
+the plugin repo and ships with the next deployment of
+`brother-tours-operations-api`.
