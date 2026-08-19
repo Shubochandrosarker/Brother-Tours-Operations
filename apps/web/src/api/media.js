@@ -1,7 +1,15 @@
 import { api, API_BASE, ApiError, getCsrfToken, unwrapEnvelope } from '@/api/client';
 
+/*
+ * These paths are /content/media, not /media, because the Bridgistic connector
+ * plugin already owns /media inside the shared bridgistic/v1 namespace. It won
+ * dispatch and answered the dashboard with "Missing authentication headers",
+ * asking for HMAC credentials that must never reach a browser. Shortening these
+ * paths back to /media re-breaks the media library.
+ */
+
 export function listMedia(params = {}, signal) {
-  return api.get('/media', {
+  return api.get('/content/media', {
     query: {
       search: params.search || '',
       page: params.page || 1,
@@ -12,9 +20,9 @@ export function listMedia(params = {}, signal) {
   });
 }
 
-export function getMedia(id, signal) { return api.get(`/media/${id}`, { signal }); }
-export function updateMedia(id, data, signal) { return api.patch(`/media/${id}`, data, { signal }); }
-export function deleteMedia(id, signal, force = false) { return api.delete(`/media/${id}`, { signal, query: force ? { force: true } : undefined }); }
+export function getMedia(id, signal) { return api.get(`/content/media/${id}`, { signal }); }
+export function updateMedia(id, data, signal) { return api.patch(`/content/media/${id}`, data, { signal }); }
+export function deleteMedia(id, signal, force = false) { return api.delete(`/content/media/${id}`, { signal, query: force ? { force: true } : undefined }); }
 
 /**
  * Uploads one file, reporting progress.
@@ -45,7 +53,7 @@ export function uploadMedia(file, fields = {}, onProgress, signal) {
 
     const base = API_BASE.endsWith('/') ? API_BASE : `${API_BASE}/`;
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', new URL('media', base).toString(), true);
+    xhr.open('POST', new URL('content/media', base).toString(), true);
     xhr.withCredentials = true;
     xhr.setRequestHeader('Accept', 'application/json');
     const csrf = getCsrfToken();
