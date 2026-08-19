@@ -127,26 +127,46 @@ for r in execute db/query fs/list fs/read fs/write fs/delete; do
 done
 fi
 
-# ── 5. Insightistic · §4 / C-02 ──────────────────────────────────────────────
-hr "5. Insightistic reality check (§4, C-02)"
+# ── 5. Insightistic PLUGIN · §4 ────────────────────────────────────────────────
+hr "5. Insightistic plugin (§4)"
+info "Subject is the WordPress PLUGIN (v4.4.0), not any hosted product."
 
 if [ "$REACHABLE" -eq 0 ]; then
   note "Origin unreachable — skipping"
-elif [ -z "$COOKIE" ]; then
-  note "No BT_COOKIE set — skipping. Re-run with a session cookie to settle C-02."
 else
-  ins="$("${CURL[@]}" "$NS/insightistic" 2>/dev/null)"
-  info "GET /insightistic → ${ins:0:400}"
-  if printf '%s' "$ins" | grep -qiE 'ga4|search.?console|pagespeed|sessions|revenue'; then
-    ok "Endpoint returns analytics-shaped data — §4 assumption may hold"
+  # /insightistic is expected to 404 until defect B-1 is fixed (controller
+  # exists in source but is never registered). A 200 here means B-1 shipped.
+  ins_code=$(curl -sS --max-time 30 -o /dev/null -w '%{http_code}' "$NS/insightistic" 2>/dev/null)
+  case "$ins_code" in
+    404) ok  "GET /insightistic → 404 as expected (defect B-1 still open)" ;;
+    200) ok  "GET /insightistic → 200 — InsightisticController is now registered (B-1 fixed)" ;;
+    401|403) note "GET /insightistic → $ins_code (needs auth; re-run with BT_COOKIE)" ;;
+    *)   note "GET /insightistic → $ins_code (unexpected)" ;;
+  esac
+
+  if [ -z "$COOKIE" ]; then
+    note "No BT_COOKIE set — skipping the plugin-list and secret-leak checks"
   else
-    note "Endpoint exposes no analytics data (active/version only) — §4 stands; Phase 2 blocked"
-  fi
-  plugins="$("${CURL[@]}" "$NS/plugins" 2>/dev/null)"
-  if printf '%s' "$plugins" | grep -qi 'insightistic'; then
-    ok "Insightistic plugin IS installed — request source access for the Phase 0 audit"
-  else
-    bad "Insightistic NOT found in the plugin list — Phase 2 has no foundation"
+    plugins="$("${CURL[@]}" "$NS/plugins" 2>/dev/null)"
+    if printf '%s' "$plugins" | grep -qi 'insightistic'; then
+      ok "Insightistic plugin present in the live plugin list"
+    else
+      note "Insightistic not found in the plugin list — re-check §4.1"
+    fi
+    if printf '%s' "$plugins" | grep -qi 'woocommerce'; then
+      note "WooCommerce IS present — §2.5 says it is not installed; update the baseline"
+    else
+      ok "WooCommerce absent, as documented — /woo/* routes are dead"
+    fi
+
+    # §4.5 — these option values must never appear in any REST response.
+    for ep in "analytics/status" "insightistic"; do
+      body="$("${CURL[@]}" "$NS/$ep" 2>/dev/null)"
+      if printf '%s' "$body" | grep -qiE 'private_key|api_key_enc|groq_key|connector_secret|crypto_secret'; then
+        bad "$ep LEAKS an Insightistic secret value — must report booleans only (§4.5)"
+      fi
+    done
+    ok "No Insightistic secret values seen in /analytics/status or /insightistic"
   fi
 fi
 
